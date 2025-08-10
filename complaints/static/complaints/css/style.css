@@ -1,0 +1,127 @@
+/* complaints/static/complaints/css/style.css */
+
+/* Brand colors */
+:root {
+  --primary-blue: #0c7544;
+  --accent-blue: #0c7544;
+  --text-dark: #333;
+  --bg-light: #f8f9fa;
+}
+
+/* Base typography */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--text-dark);
+  line-height: 1.6;
+  background-color: var(--bg-light);
+}
+
+/* Headings */
+h1, h2, h3, h4 {
+  font-weight: 600;
+  color: var(--primary-blue);
+  margin-bottom: 1rem;
+}
+
+/* Navbar */
+.navbar {
+  background-color: var(--primary-blue) !important;
+  padding: 15px 100px;
+}
+.navbar .nav-link,
+.navbar .navbar-brand {
+  color: white !important;
+  font-weight: 500;
+}
+.navbar .nav-link:hover {
+  color: var(--accent-blue) !important;
+}
+
+/* Forms */
+form {
+  background: #fff;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+form label {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+input, textarea, select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(25,118,210,0.2);
+  outline: none;
+}
+
+/* Buttons */
+.btn {
+  font-size: 1rem;
+  padding: 0.6rem 1.4rem;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+.btn-primary {
+  background: var(--accent-blue);
+  border: none;
+  color: #fff;
+}
+.btn-primary:hover {
+  background: #1565c0;
+}
+
+/* Tables */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+}
+.table th, .table td {
+  border: 1px solid #dee2e6;
+  padding: 0.75rem;
+  text-align: left;
+}
+.table thead th {
+  background: var(--primary-blue);
+  color: #fff;
+  font-weight: 600;
+}
+.table tbody tr:nth-child(odd) {
+  background: #f9f9f9;
+}
+
+/* Card panels */
+.card {
+  background: #fff;
+  border: 1px solid #e2e2e2;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Footer */
+footer {
+  margin-top: 2rem;
+  padding: 1rem 0;
+  background-color: var(--bg-light);
+  text-align: center;
+  font-size: .9rem;
+  color: var(--text-dark);
+}
+footer a {
+  color: var(--primary-blue);
+}
+footer a:hover {
+  text-decoration: underline;
+}

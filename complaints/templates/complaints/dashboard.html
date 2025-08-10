@@ -1,0 +1,109 @@
+{% extends 'complaints/base.html' %}
+{% load static %}
+
+{% block title %}Manager Metrics{% endblock %}
+
+{% block content %}
+  <h2 class="mb-4">Metrics Dashboard</h2>
+
+  <!-- Summary cards -->
+  <div class="row mb-4">
+    <div class="col-md-3">
+      <div class="card text-white bg-primary mb-3">
+        <div class="card-body text-center">
+          <h5 class="card-title">Total Complaints</h5>
+          <p class="display-6">{{ total }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-white bg-warning mb-3">
+        <div class="card-body text-center">
+          <h5 class="card-title">New</h5>
+          <p class="display-6">{{ breakdown.new }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-white bg-info mb-3">
+        <div class="card-body text-center">
+          <h5 class="card-title">In Progress</h5>
+          <p class="display-6">{{ breakdown.in_progress }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-white bg-success mb-3">
+        <div class="card-body text-center">
+          <h5 class="card-title">Closed</h5>
+          <p class="display-6">{{ breakdown.closed }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resolution times -->
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <div class="alert alert-secondary text-center">
+        <strong>Average Resolution:</strong> {{ avg_resolution }} days
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="alert alert-secondary text-center">
+        <strong>Median Resolution:</strong> {{ median_resolution }} days
+      </div>
+    </div>
+  </div>
+
+  <!-- Monthly trends table -->
+  <h4>Monthly Complaints</h4>
+  <table id="monthly-table" class="table table-bordered mb-4" style="width:100%">
+    <thead>
+      <tr><th>Month</th><th>Count</th></tr>
+    </thead>
+    <tbody>
+      {% for m in monthly %}
+        <tr>
+          <td>{{ m.month }}</td>
+          <td>{{ m.count }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Top locations table -->
+  <h4>Top 5 Locations</h4>
+  <table id="toploc-table" class="table table-bordered" style="width:100%">
+    <thead>
+      <tr><th>Location</th><th>Count</th></tr>
+    </thead>
+    <tbody>
+      {% for loc in top_locations %}
+        <tr>
+          <td>{{ loc.location }}</td>
+          <td>{{ loc.count }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- DataTables assets -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css"
+  />
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script>
+    $(document).ready(function() {
+      $('#monthly-table, #toploc-table').DataTable({
+        scrollY: '300px',
+        scrollCollapse: true,
+        paging: false,
+        ordering: true,
+        info: false
+      });
+    });
+  </script>
+{% endblock %}

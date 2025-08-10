@@ -1,0 +1,21 @@
+{% extends 'complaints/base.html' %}
+{% load static %}
+
+{% block title %}Complaint Submitted{% endblock %}
+
+{% block content %}
+  <div class="text-center my-5">
+    <h2 class="text-primary">Thank You!</h2>
+    <p>Your complaint has been successfully submitted.</p>
+    <p>
+      <strong>Your Complaint ID is: {{ complaint.id }}</strong>
+    </p>
+    <p>
+      You can <a href="{% url 'complaints:status_lookup' %}">check the status</a>
+      at any time using this ID.
+    </p>
+    <a href="{% url 'complaints:status_lookup' %}" class="btn btn-outline-primary">
+      Go to Status Lookup
+    </a>
+  </div>
+{% endblock %}
