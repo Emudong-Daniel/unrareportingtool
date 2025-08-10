@@ -48,7 +48,7 @@ class RoleLoginView(LoginView):
         if is_technician(user):
             return reverse('complaints:technician_dashboard')
         if is_manager(user):
-            return reverse('complaints:dashboard')  # Metrics for admins
+            return reverse('complaints:dashboard')
         return reverse('complaints:create')
 
 
@@ -60,14 +60,13 @@ class RoleLogoutView(LogoutView):
 def role_redirect(request):
     user = request.user
     if is_manager(user):
-        return redirect('complaints:dashboard')  # Metrics for admins
+        return redirect('complaints:dashboard')
     if is_technician(user):
         return redirect('complaints:technician_dashboard')
     return redirect('complaints:status_lookup')
 
 
 def complaint_create(request):
-    # Prevent admins and technicians from using the citizen form
     if request.user.is_authenticated and (is_manager(request.user) or is_technician(request.user)):
         return role_redirect(request)
 
@@ -128,17 +127,15 @@ def status_lookup(request):
 @user_passes_test(is_manager)
 def admin_dashboard(request):
     """
-    Manager view with search and assignment.
-    Supports filter=closed_by_tech to show only closed items handled by technicians.
+    Manager table with optional filter closed_by_tech
+    Now treats FIX and CLO as closed
     """
     complaints = Complaint.objects.order_by('status', '-created_at')
 
-    # Optional filter to show only closed-by-technician items
     flt = request.GET.get('filter', '').strip()
     if flt == 'closed_by_tech':
-        complaints = complaints.filter(status='CLO', assigned_to__isnull=False)
+        complaints = complaints.filter(status__in=['FIX', 'CLO'], assigned_to__isnull=False)
 
-    # Text search and status code search
     query = request.GET.get('q', '').strip()
     if query:
         filters = Q()
@@ -160,10 +157,7 @@ def admin_dashboard(request):
         tid = request.POST.get('technician')
         comp = get_object_or_404(Complaint, pk=cid)
         if comp.status in ['FIX', 'CLO']:
-            messages.error(
-                request,
-                f"Complaint #{comp.id} is already {comp.get_status_display()} and cannot reassign."
-            )
+            messages.error(request, f"Complaint #{comp.id} is already {comp.get_status_display()} and cannot reassign.")
             return redirect('complaints:admin_dashboard')
         if not (cid and tid):
             messages.error(request, "Select both complaint and technician.")
@@ -200,10 +194,7 @@ def admin_dashboard(request):
 def complaint_update(request, pk):
     comp = get_object_or_404(Complaint, pk=pk)
     if comp.status in ['FIX', 'CLO']:
-        messages.error(
-            request,
-            f"Complaint #{comp.id} is already {comp.get_status_display()} and cannot be updated."
-        )
+        messages.error(request, f"Complaint #{comp.id} is already {comp.get_status_display()} and cannot be updated.")
         return redirect('complaints:admin_dashboard')
     if request.method == 'POST':
         form = StatusUpdateForm(request.POST)
@@ -236,9 +227,6 @@ def complaint_update(request, pk):
 @login_required
 @user_passes_test(is_technician)
 def technician_dashboard(request):
-    """
-    Assigned complaints and personal metrics for technicians.
-    """
     qs = Complaint.objects.filter(assigned_to=request.user).order_by('-created_at')
 
     total = qs.count()
@@ -273,26 +261,23 @@ def technician_dashboard(request):
 @user_passes_test(is_manager)
 def dashboard(request):
     """
-    Manager metrics. Closed count shows only complaints closed by technicians
-    defined as status CLO and assigned_to not null.
+    Metrics. Closed includes FIX and CLO handled by technicians.
     """
     total = Complaint.objects.count()
 
-    # Raw counts by status
     status_qs = Complaint.objects.values('status').annotate(cnt=Count('id'))
     status_counts = {s['status']: s['cnt'] for s in status_qs}
 
-    # Closed by technician
-    closed_by_tech = Complaint.objects.filter(status='CLO', assigned_to__isnull=False).count()
+    closed_by_tech = Complaint.objects.filter(status__in=['FIX', 'CLO'], assigned_to__isnull=False).count()
 
     breakdown = {
         'new': status_counts.get('NEW', 0),
         'in_progress': status_counts.get('INP', 0),
-        'fixed': status_counts.get('FIX', 0),
-        'closed': closed_by_tech,  # only those handled by technicians
+        'fixed': status_counts.get('FIX', 0),  # kept for completeness, not shown on admin cards
+        'closed': closed_by_tech,
     }
 
-    resolved = Complaint.objects.filter(status='CLO').annotate(
+    resolved = Complaint.objects.filter(status__in=['FIX', 'CLO']).annotate(
         resolution=ExpressionWrapper(
             F('updates__timestamp') - F('created_at'),
             output_field=DurationField()
