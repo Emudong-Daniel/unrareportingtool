@@ -1,13 +1,100 @@
+<!-- complaints/status_lookup.html -->
 {% extends 'complaints/base.html' %}
 {% block content %}
 <h2>Check Complaint Status</h2>
-<form method="post">{% csrf_token %}
-  {{ form.as_p }}
-  <button class="btn btn-primary">Lookup</button>
+
+<form method="post" class="row g-3">
+  {% csrf_token %}
+
+  <div class="col-md-4">
+    <label for="{{ form.complaint_id.id_for_label }}">Complaint ID</label>
+    {{ form.complaint_id }}
+  </div>
+
+  <div class="col-md-4">
+    <label for="{{ form.contact.id_for_label }}">Contact</label>
+    {{ form.contact }}
+  </div>
+
+  <div class="col-12">
+    <button class="btn btn-primary">Lookup</button>
+  </div>
 </form>
-{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
-{% if status %}
-  <h4>Status: {{ status }}</h4>
-  <p>Description: {{ complaint.description }}</p>
+
+{% if error %}
+  <div class="alert alert-danger mt-3">{{ error }}</div>
+{% endif %}
+
+{% if complaint %}
+  <div class="card shadow-sm border-0 mt-4">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">Complaint #{{ complaint.id }}</h5>
+        {% if complaint.status == 'NEW' %}
+          <span class="badge bg-warning text-dark">{{ status }}</span>
+        {% elif complaint.status == 'INP' %}
+          <span class="badge bg-info text-dark">{{ status }}</span>
+        {% elif complaint.status == 'FIX' %}
+          <span class="badge bg-primary">{{ status }}</span>
+        {% elif complaint.status == 'CLO' %}
+          <span class="badge bg-success">{{ status }}</span>
+        {% else %}
+          <span class="badge bg-secondary">{{ status }}</span>
+        {% endif %}
+      </div>
+
+      <p class="text-muted mt-2 mb-3">
+        Submitted {{ complaint.created_at|date:"Y-m-d H:i" }}
+      </p>
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="border rounded p-3 h-100">
+            <div class="fw-bold mb-1">Name</div>
+            <div>{{ complaint.name|default:"-" }}</div>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="border rounded p-3 h-100">
+            <div class="fw-bold mb-1">Contact</div>
+            <div>{{ complaint.contact|default:"-" }}</div>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="border rounded p-3 h-100">
+            <div class="fw-bold mb-1">Email</div>
+            <div>{{ complaint.email|default:"-" }}</div>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="border rounded p-3 h-100">
+            <div class="fw-bold mb-1">Location</div>
+            <div>{{ complaint.location }}</div>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <div class="border rounded p-3">
+            <div class="fw-bold mb-1">Description</div>
+            <div class="text-muted">{{ complaint.description|linebreaksbr }}</div>
+          </div>
+        </div>
+
+        {% if complaint.photo %}
+        <div class="col-12">
+          <div class="border rounded p-3">
+            <div class="fw-bold mb-2">Photo</div>
+            <a href="{{ complaint.photo.url }}" target="_blank" rel="noopener">
+              <img src="{{ complaint.photo.url }}" alt="Complaint photo" class="img-fluid rounded">
+            </a>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
 {% endif %}
 {% endblock %}

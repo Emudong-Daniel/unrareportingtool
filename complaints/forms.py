@@ -1,16 +1,24 @@
 # complaints/forms.py
-
 from django import forms
+from django.utils.translation import gettext_lazy as _
 from .models import Complaint, StatusUpdate
 
 class ComplaintForm(forms.ModelForm):
     class Meta:
         model = Complaint
-        fields = ['contact', 'location', 'description', 'photo']
+        fields = ['name', 'contact', 'email', 'location', 'description', 'photo']
         widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter your full name'
+            }),
             'contact': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'enter your contact'
+                'placeholder': 'Enter your contact'
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'you@example.com'
             }),
             'location': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -49,11 +57,11 @@ class LookupForm(forms.Form):
             'placeholder': 'e.g., 123'
         })
     )
-    citizen_email = forms.EmailField(
-        label='Your Email',
-        widget=forms.EmailInput(attrs={
+    contact = forms.CharField(
+        label='Contact',
+        widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': 'you@example.com'
+            'placeholder': 'The contact used on submission'
         })
     )
 

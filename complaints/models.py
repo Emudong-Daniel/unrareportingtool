@@ -3,6 +3,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+
 class Complaint(models.Model):
     STATUS_CHOICES = [
         ('NEW', 'New'),
@@ -11,14 +12,15 @@ class Complaint(models.Model):
         ('CLO', 'Closed'),
     ]
 
-    contact = models.EmailField(blank=True, null=True)
+    name = models.CharField(max_length=120, blank=True)
+    contact = models.CharField(max_length=64, blank=True)
+    email = models.EmailField(blank=True, null=True)
     location = models.CharField(max_length=255)
     description = models.TextField()
     photo = models.ImageField(upload_to='complaint_photos/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=3, choices=STATUS_CHOICES, default='NEW')
 
-    # Technician assignment
     assigned_to = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,

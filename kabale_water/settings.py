@@ -1,15 +1,16 @@
-import os
 from pathlib import Path
+import os
 
-# Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY
-SECRET_KEY = 'n/a'
-DEBUG = True
-ALLOWED_HOSTS = []
+SECRET_KEY =  os.getenv('DJANGO_SECRET_KEY') or 'dev-please-change-me-3c8a6f8b9a4c40b0b2f1a7b5e2c1d9aa'
 
-# Application definition
+DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
+
+ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',') if os.getenv('DJANGO_ALLOWED_HOSTS') else []
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'noreply@unra.go.ug'
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -17,6 +18,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # project apps
     'complaints',
 ]
 
@@ -31,11 +34,14 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'kabale_water.urls'
+WSGI_APPLICATION = 'kabale_water.wsgi.application'
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [
+            BASE_DIR / 'templates',
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -48,43 +54,46 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'kabale_water.wsgi.application'
-
-# Database
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.sqlite3'),
+        'NAME': os.getenv('DB_NAME', BASE_DIR / 'db.sqlite3'),
+        'USER': os.getenv('DB_USER', ''),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', ''),
+        'PORT': os.getenv('DB_PORT', ''),
     }
 }
 
-# Password validation
-AUTH_PASSWORD_VALIDATORS = []
+AUTH_PASSWORD_VALIDATORS = [
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+]
 
-# Internationalization
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Africa/Kampala'
 USE_I18N = True
-USE_L10N = True
 USE_TZ = True
 
-# Static & media
 STATIC_URL = '/static/'
+STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Twilio (SMS)
-TWILIO_SID = ''
-TWILIO_AUTH_TOKEN = ''
-TWILIO_PHONE = ''
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# -----------------------------------------------------------------------------
-# EMAIL
-# -----------------------------------------------------------------------------
-# During development, print all emails to the console rather than send
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-# You can override this in production with SMTP settings when ready
-DEFAULT_FROM_EMAIL = 'webmaster@localhost'
+# Authentication redirects
+LOGIN_REDIRECT_URL = '/redirect-after-login/'
+LOGIN_URL = '/login/'
+LOGOUT_REDIRECT_URL = '/'
 
-LOGIN_URL = 'complaints:login'
-LOGOUT_REDIRECT_URL = 'complaints:create'
+# Sessions
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 7
+SESSION_SAVE_EVERY_REQUEST = False
+CSRF_COOKIE_SECURE = os.getenv('DJANGO_SECURE', 'False') == 'True'
+SESSION_COOKIE_SECURE = os.getenv('DJANGO_SECURE', 'False') == 'True'
+SECURE_SSL_REDIRECT = os.getenv('DJANGO_SECURE', 'False') == 'True'

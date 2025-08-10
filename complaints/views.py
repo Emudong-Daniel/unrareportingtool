@@ -1,3 +1,4 @@
+# complaints/views.py
 import csv
 import io
 from statistics import median
@@ -47,7 +48,7 @@ class RoleLoginView(LoginView):
         if is_technician(user):
             return reverse('complaints:technician_dashboard')
         if is_manager(user):
-            return reverse('complaints:admin_dashboard')
+            return reverse('complaints:dashboard')  # Metrics for admins
         return reverse('complaints:create')
 
 
@@ -55,15 +56,26 @@ class RoleLogoutView(LogoutView):
     next_page = 'complaints:create'
 
 
+@login_required
+def role_redirect(request):
+    user = request.user
+    if is_manager(user):
+        return redirect('complaints:dashboard')  # Metrics for admins
+    if is_technician(user):
+        return redirect('complaints:technician_dashboard')
+    return redirect('complaints:status_lookup')
+
+
 def complaint_create(request):
-    """
-    Citizen view: submit a new complaint.
-    """
+    # Prevent admins and technicians from using the citizen form
+    if request.user.is_authenticated and (is_manager(request.user) or is_technician(request.user)):
+        return role_redirect(request)
+
     if request.method == 'POST':
         form = ComplaintForm(request.POST, request.FILES)
         if form.is_valid():
             comp = form.save()
-            if comp.citizen_email:
+            if comp.email:
                 lookup_url = request.build_absolute_uri(reverse('complaints:status_lookup'))
                 send_mail(
                     'Complaint Received',
@@ -71,12 +83,12 @@ def complaint_create(request):
                     f'Complaint ID: {comp.id}\n'
                     f'Check status: {lookup_url}',
                     settings.DEFAULT_FROM_EMAIL,
-                    [comp.citizen_email],
+                    [comp.email],
                     fail_silently=False,
                 )
-            if hasattr(comp, 'citizen_phone') and comp.citizen_phone:
+            if comp.contact:
                 send_sms(
-                    comp.citizen_phone,
+                    comp.contact,
                     f'Complaint #{comp.id} received. Use your ID to check status online.'
                 )
             messages.success(request, 'Complaint submitted successfully.')
@@ -87,26 +99,20 @@ def complaint_create(request):
 
 
 def complaint_submitted(request, pk):
-    """
-    Show submission success with Complaint ID.
-    """
     comp = get_object_or_404(Complaint, pk=pk)
     return render(request, 'complaints/complaint_submitted.html', {'complaint': comp})
 
 
 def status_lookup(request):
-    """
-    Citizen view: lookup complaint status by ID and email.
-    """
     form = LookupForm()
     comp = status = error = None
     if request.method == 'POST':
         form = LookupForm(request.POST)
         if form.is_valid():
             cid = form.cleaned_data['complaint_id']
-            email = form.cleaned_data['citizen_email']
+            contact = form.cleaned_data['contact']
             try:
-                comp = Complaint.objects.get(pk=cid, citizen_email=email)
+                comp = Complaint.objects.get(pk=cid, contact=contact)
                 status = comp.get_status_display()
             except Complaint.DoesNotExist:
                 error = 'No matching complaint found.'
@@ -122,9 +128,17 @@ def status_lookup(request):
 @user_passes_test(is_manager)
 def admin_dashboard(request):
     """
-    Manager view: searchable, view and assign technicians.
+    Manager view with search and assignment.
+    Supports filter=closed_by_tech to show only closed items handled by technicians.
     """
     complaints = Complaint.objects.order_by('status', '-created_at')
+
+    # Optional filter to show only closed-by-technician items
+    flt = request.GET.get('filter', '').strip()
+    if flt == 'closed_by_tech':
+        complaints = complaints.filter(status='CLO', assigned_to__isnull=False)
+
+    # Text search and status code search
     query = request.GET.get('q', '').strip()
     if query:
         filters = Q()
@@ -146,11 +160,13 @@ def admin_dashboard(request):
         tid = request.POST.get('technician')
         comp = get_object_or_404(Complaint, pk=cid)
         if comp.status in ['FIX', 'CLO']:
-            messages.error(request,
-                f"Complaint #{comp.id} is already {comp.get_status_display()} — cannot reassign.")
+            messages.error(
+                request,
+                f"Complaint #{comp.id} is already {comp.get_status_display()} and cannot reassign."
+            )
             return redirect('complaints:admin_dashboard')
         if not (cid and tid):
-            messages.error(request, "Select both complaint & technician.")
+            messages.error(request, "Select both complaint and technician.")
             return redirect('complaints:admin_dashboard')
         tech = get_object_or_404(User, pk=tid)
         StatusUpdate.objects.create(
@@ -161,12 +177,12 @@ def admin_dashboard(request):
         comp.assigned_to = tech
         comp.status = 'INP'
         comp.save()
-        if comp.citizen_email:
+        if comp.email:
             send_mail(
                 'Complaint Assignment',
                 f'Your complaint #{comp.id} has been assigned to {tech.username}.',
                 settings.DEFAULT_FROM_EMAIL,
-                [comp.citizen_email],
+                [comp.email],
                 fail_silently=False,
             )
         messages.success(request, f'Complaint #{comp.id} assigned to {tech.username}.')
@@ -182,13 +198,12 @@ def admin_dashboard(request):
 @login_required
 @user_passes_test(lambda u: is_manager(u) or is_technician(u))
 def complaint_update(request, pk):
-    """
-    Manager or technician: update status & comment.
-    """
     comp = get_object_or_404(Complaint, pk=pk)
     if comp.status in ['FIX', 'CLO']:
-        messages.error(request,
-            f"Complaint #{comp.id} is already {comp.get_status_display()} and cannot be updated.")
+        messages.error(
+            request,
+            f"Complaint #{comp.id} is already {comp.get_status_display()} and cannot be updated."
+        )
         return redirect('complaints:admin_dashboard')
     if request.method == 'POST':
         form = StatusUpdateForm(request.POST)
@@ -198,12 +213,12 @@ def complaint_update(request, pk):
             upd.save()
             comp.status = upd.status
             comp.save()
-            if comp.citizen_email:
+            if comp.email:
                 send_mail(
                     'Complaint Status Update',
                     f'Your complaint #{comp.id} status is now {comp.get_status_display()}.',
                     settings.DEFAULT_FROM_EMAIL,
-                    [comp.citizen_email],
+                    [comp.email],
                     fail_silently=False,
                 )
             messages.success(request, 'Status updated successfully.')
@@ -222,12 +237,10 @@ def complaint_update(request, pk):
 @user_passes_test(is_technician)
 def technician_dashboard(request):
     """
-    Technician view: see only your assigned complaints,
-    plus personal metrics (counts + resolution times).
+    Assigned complaints and personal metrics for technicians.
     """
     qs = Complaint.objects.filter(assigned_to=request.user).order_by('-created_at')
 
-    # Totals & status breakdown
     total = qs.count()
     status_counts = {
         'new': qs.filter(status='NEW').count(),
@@ -236,12 +249,11 @@ def technician_dashboard(request):
         'closed': qs.filter(status='CLO').count(),
     }
 
-    # Resolution times (only for closed ones)
-    resolved_deltas = qs.filter(status='CLO')\
+    resolved_deltas = qs.filter(status='CLO') \
         .annotate(resolution=ExpressionWrapper(
             F('updates__timestamp') - F('created_at'),
             output_field=DurationField()
-        ))\
+        )) \
         .values_list('resolution', flat=True)
 
     days = [delta.total_seconds() / 86400 for delta in resolved_deltas if delta]
@@ -261,17 +273,25 @@ def technician_dashboard(request):
 @user_passes_test(is_manager)
 def dashboard(request):
     """
-    Manager metrics: totals, breakdowns, trends, top locations.
+    Manager metrics. Closed count shows only complaints closed by technicians
+    defined as status CLO and assigned_to not null.
     """
     total = Complaint.objects.count()
+
+    # Raw counts by status
     status_qs = Complaint.objects.values('status').annotate(cnt=Count('id'))
     status_counts = {s['status']: s['cnt'] for s in status_qs}
+
+    # Closed by technician
+    closed_by_tech = Complaint.objects.filter(status='CLO', assigned_to__isnull=False).count()
+
     breakdown = {
         'new': status_counts.get('NEW', 0),
         'in_progress': status_counts.get('INP', 0),
         'fixed': status_counts.get('FIX', 0),
-        'closed': status_counts.get('CLO', 0),
+        'closed': closed_by_tech,  # only those handled by technicians
     }
+
     resolved = Complaint.objects.filter(status='CLO').annotate(
         resolution=ExpressionWrapper(
             F('updates__timestamp') - F('created_at'),
@@ -281,6 +301,7 @@ def dashboard(request):
     days = [td.total_seconds() / 86400 for td in resolved if td]
     avg_resolution = round(sum(days) / len(days), 2) if days else 0
     median_resolution = round(median(days), 2) if days else 0
+
     monthly = (
         Complaint.objects
         .annotate(month=F('created_at__month'))
@@ -288,12 +309,14 @@ def dashboard(request):
         .annotate(count=Count('id'))
         .order_by('month')
     )
+
     top_locations = (
         Complaint.objects
         .values('location')
         .annotate(count=Count('id'))
         .order_by('-count')[:5]
     )
+
     return render(request, 'complaints/dashboard.html', {
         'total': total,
         'breakdown': breakdown,
@@ -307,9 +330,6 @@ def dashboard(request):
 @login_required
 @user_passes_test(is_manager)
 def reports(request):
-    """
-    Manager: filter and export complaints to CSV/PDF/Word (landscape).
-    """
     form = ReportForm(request.GET or None)
     qs = Complaint.objects.order_by('-created_at')
     if form.is_valid():
@@ -331,11 +351,11 @@ def reports(request):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="complaints_report.csv"'
         writer = csv.writer(response)
-        writer.writerow(['ID','Email','Location','Status','Created','Description'])
+        writer.writerow(['ID', 'Name', 'Contact', 'Email', 'Location', 'Status', 'Created', 'Description'])
         for c in qs:
             writer.writerow([
-                c.id, c.citizen_email or '', c.location,
-                c.get_status_display(), c.created_at.strftime('%Y-%m-%d'), c.description
+                c.id, c.name or '', c.contact or '', c.email or '',
+                c.location, c.get_status_display(), c.created_at.strftime('%Y-%m-%d'), c.description
             ])
         return response
 
@@ -344,18 +364,18 @@ def reports(request):
         doc = SimpleDocTemplate(buffer, pagesize=landscape(letter))
         styles = getSampleStyleSheet()
         elements = [Paragraph('Complaints Report', styles['Title'])]
-        data = [['ID','Email','Location','Status','Created','Description']]
+        data = [['ID', 'Name', 'Contact', 'Email', 'Location', 'Status', 'Created', 'Description']]
         for c in qs:
             data.append([
-                str(c.id), c.citizen_email or '', c.location,
-                c.get_status_display(), c.created_at.strftime('%Y-%m-%d'), c.description
+                str(c.id), c.name or '', c.contact or '', c.email or '',
+                c.location, c.get_status_display(), c.created_at.strftime('%Y-%m-%d'), c.description
             ])
         table = Table(data, repeatRows=1)
         table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.darkblue),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ]))
         elements.append(table)
         doc.build(elements)
@@ -370,18 +390,20 @@ def reports(request):
         section.orientation = WD_ORIENT.LANDSCAPE
         section.page_width, section.page_height = section.page_height, section.page_width
         docx.add_heading('Complaints Report', 0)
-        table = docx.add_table(rows=1, cols=6)
+        table = docx.add_table(rows=1, cols=8)
         hdr = table.rows[0].cells
-        for i, h in enumerate(['ID','Email','Location','Status','Created','Description']):
+        for i, h in enumerate(['ID', 'Name', 'Contact', 'Email', 'Location', 'Status', 'Created', 'Description']):
             hdr[i].text = h
         for c in qs:
             row = table.add_row().cells
             row[0].text = str(c.id)
-            row[1].text = c.citizen_email or ''
-            row[2].text = c.location
-            row[3].text = c.get_status_display()
-            row[4].text = c.created_at.strftime('%Y-%m-%d')
-            row[5].text = c.description
+            row[1].text = c.name or ''
+            row[2].text = c.contact or ''
+            row[3].text = c.email or ''
+            row[4].text = c.location
+            row[5].text = c.get_status_display()
+            row[6].text = c.created_at.strftime('%Y-%m-%d')
+            row[7].text = c.description
         buf = io.BytesIO()
         docx.save(buf)
         buf.seek(0)

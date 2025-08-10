@@ -1,8 +1,41 @@
 {% extends 'complaints/base.html' %}
 {% block content %}
 <h2>Submit New Complaint</h2>
-<form method="post" enctype="multipart/form-data">{% csrf_token %}
-  {{ form.as_p }}
-  <button class="btn btn-primary" type="submit">Submit</button>
+<form method="post" enctype="multipart/form-data" class="row g-3">
+  {% csrf_token %}
+
+  <div class="col-md-6">
+    <label for="{{ form.name.id_for_label }}">Name</label>
+    {{ form.name }}
+  </div>
+
+  <div class="col-md-6">
+    <label for="{{ form.contact.id_for_label }}">Contact</label>
+    {{ form.contact }}
+  </div>
+
+  <div class="col-md-6">
+    <label for="{{ form.email.id_for_label }}">Email</label>
+    {{ form.email }}
+  </div>
+
+  <div class="col-md-6">
+    <label for="{{ form.location.id_for_label }}">Location</label>
+    {{ form.location }}
+  </div>
+
+  <div class="col-12">
+    <label for="{{ form.description.id_for_label }}">Description</label>
+    {{ form.description }}
+  </div>
+
+  <div class="col-md-6">
+    <label for="{{ form.photo.id_for_label }}">Photo</label>
+    {{ form.photo }}
+  </div>
+
+  <div class="col-12">
+    <button class="btn btn-primary" type="submit">Submit</button>
+  </div>
 </form>
 {% endblock %}
