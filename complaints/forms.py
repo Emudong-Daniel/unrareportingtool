@@ -14,7 +14,7 @@ class ComplaintForm(forms.ModelForm):
             }),
             'location': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Location of water point'
+                'placeholder': 'Location'
             }),
             'description': forms.Textarea(attrs={
                 'class': 'form-control',
