@@ -1,15 +1,23 @@
 <!-- complaints/admin_dashboard.html -->
 {% extends 'complaints/base.html' %}
+
 {% block title %}Admin Dashboard{% endblock %}
+
 {% block content %}
-<h2 class="mb-3">Admin Dashboard</h2>
+<h2 class="mb-4">Admin Dashboard</h2>
 
 <form method="get" class="row g-2 mb-3">
-  <div class="col-auto">
-    <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search by ID, location, text, or status">
+  <div class="col-md-6">
+    <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search by ID, status, location, description">
   </div>
-  <div class="col-auto">
-    <button class="btn btn-outline-primary">Search</button>
+  <div class="col-md-3">
+    <select name="filter" class="form-select">
+      <option value="">All</option>
+      <option value="closed_by_tech" {% if request.GET.filter == 'closed_by_tech' %}selected{% endif %}>Closed by technicians</option>
+    </select>
+  </div>
+  <div class="col-md-3">
+    <button class="btn btn-primary w-100">Apply</button>
   </div>
 </form>
 
@@ -20,15 +28,18 @@
         <th>ID</th>
         <th>Created</th>
         <th>Status</th>
+        <th>Name</th>
+        <th>Contact</th>
         <th>Location</th>
         <th>Description</th>
+        <th>Photo</th>
         <th>Assigned To</th>
-        <th>Assign</th>
+        <th>Comment</th>
       </tr>
     </thead>
     <tbody>
       {% for c in complaints %}
-      <tr class="{% if c.status == 'NEW' %}blink{% endif %}">
+      <tr>
         <td>#{{ c.id }}</td>
         <td>{{ c.created_at|date:"Y-m-d H:i" }}</td>
         <td>
@@ -36,48 +47,61 @@
             <span class="badge bg-warning text-dark">New</span>
           {% elif c.status == 'INP' %}
             <span class="badge bg-info text-dark">In Progress</span>
-          {% elif c.status == 'FIX' %}
-            <span class="badge bg-primary">Fixed</span>
-          {% elif c.status == 'CLO' %}
+          {% elif c.status == 'FIX' or c.status == 'CLO' %}
             <span class="badge bg-success">Closed</span>
           {% else %}
             <span class="badge bg-secondary">{{ c.status }}</span>
           {% endif %}
         </td>
+        <td>{{ c.name|default:'-' }}</td>
+        <td>{{ c.contact|default:'-' }}</td>
         <td>{{ c.location }}</td>
         <td class="text-truncate" style="max-width: 320px">{{ c.description }}</td>
-        <td>{{ c.assigned_to|default:"Unassigned" }}</td>
         <td>
-          <form method="post" class="d-flex align-items-center gap-2">
-            {% csrf_token %}
-            <input type="hidden" name="complaint" value="{{ c.id }}">
-            <select name="technician" class="form-select form-select-sm">
-              <option value="">Choose technician</option>
-              {% for t in technicians %}
-                <option value="{{ t.id }}" {% if c.assigned_to_id == t.id %}selected{% endif %}>{{ t.username }}</option>
-              {% endfor %}
-            </select>
-            <button class="btn btn-sm btn-primary">Assign</button>
-          </form>
+          {% if c.photo %}
+            <a href="{{ c.photo.url }}" target="_blank" rel="noopener">View</a>
+          {% else %}
+            <span class="text-muted">None</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if c.assigned_to %}
+            {{ c.assigned_to.username }}
+          {% else %}
+            <span class="text-muted">Unassigned</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if c.status == 'FIX' or c.status == 'CLO' %}
+            {% with last=c.updates.last %}
+              {% if last and last.comment %}
+                <div class="small text-muted">Latest comment</div>
+                <div>{{ last.comment }}</div>
+              {% else %}
+                <span class="text-muted">No comment</span>
+              {% endif %}
+            {% endwith %}
+          {% else %}
+            <form method="post" class="d-flex gap-2 align-items-center">
+              {% csrf_token %}
+              <input type="hidden" name="complaint" value="{{ c.id }}">
+              <select name="technician" class="form-select form-select-sm">
+                <option value="">Select tech</option>
+                {% for t in technicians %}
+                  <option value="{{ t.id }}">{{ t.username }}</option>
+                {% endfor %}
+              </select>
+              <button class="btn btn-sm btn-outline-primary">Assign</button>
+            </form>
+          {% endif %}
         </td>
       </tr>
       {% empty %}
       <tr>
-        <td colspan="7" class="text-muted">No complaints found</td>
+        <td colspan="10" class="text-muted">No complaints</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
-
-<style>
-@keyframes rowPulse {
-  0% { box-shadow: inset 0 0 0 0 rgba(255, 0, 0, 0.45) }
-  50% { box-shadow: inset 0 0 0 9999px rgba(255, 0, 0, 0.08) }
-  100% { box-shadow: inset 0 0 0 0 rgba(255, 0, 0, 0.45) }
-}
-.blink {
-  animation: rowPulse 1.2s ease-in-out infinite
-}
-</style>
 {% endblock %}

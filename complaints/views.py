@@ -12,8 +12,14 @@ from django.contrib import messages
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db.models import Q, Count, F, ExpressionWrapper, DurationField
+from django.db.models.functions import TruncMonth
 from django.contrib.auth.models import User
-from twilio.rest import Client
+
+# Twilio import made optional
+try:
+    from twilio.rest import Client
+except Exception:
+    Client = None
 
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
 from reportlab.lib import colors
@@ -28,8 +34,16 @@ from .forms import ComplaintForm, StatusUpdateForm, LookupForm, ReportForm
 
 
 def send_sms(to, body):
-    client = Client(settings.TWILIO_SID, settings.TWILIO_AUTH_TOKEN)
-    client.messages.create(body=body, from_=settings.TWILIO_PHONE, to=to)
+    sid = getattr(settings, 'TWILIO_SID', '') or ''
+    token = getattr(settings, 'TWILIO_AUTH_TOKEN', '') or ''
+    from_phone = getattr(settings, 'TWILIO_PHONE', '') or ''
+    if not (Client and sid and token and from_phone and to):
+        return
+    try:
+        client = Client(sid, token)
+        client.messages.create(body=body, from_=from_phone, to=to)
+    except Exception:
+        return
 
 
 def is_manager(user):
@@ -126,10 +140,6 @@ def status_lookup(request):
 @login_required
 @user_passes_test(is_manager)
 def admin_dashboard(request):
-    """
-    Manager table with optional filter closed_by_tech
-    Now treats FIX and CLO as closed
-    """
     complaints = Complaint.objects.order_by('status', '-created_at')
 
     flt = request.GET.get('filter', '').strip()
@@ -261,7 +271,8 @@ def technician_dashboard(request):
 @user_passes_test(is_manager)
 def dashboard(request):
     """
-    Metrics. Closed includes FIX and CLO handled by technicians.
+    Metrics. Closed includes FIX and CLO that were assigned to a technician.
+    Monthly rows show month names.
     """
     total = Complaint.objects.count()
 
@@ -273,7 +284,7 @@ def dashboard(request):
     breakdown = {
         'new': status_counts.get('NEW', 0),
         'in_progress': status_counts.get('INP', 0),
-        'fixed': status_counts.get('FIX', 0),  # kept for completeness, not shown on admin cards
+        'fixed': status_counts.get('FIX', 0),
         'closed': closed_by_tech,
     }
 
@@ -287,9 +298,10 @@ def dashboard(request):
     avg_resolution = round(sum(days) / len(days), 2) if days else 0
     median_resolution = round(median(days), 2) if days else 0
 
+    # Month names using TruncMonth
     monthly = (
         Complaint.objects
-        .annotate(month=F('created_at__month'))
+        .annotate(month=TruncMonth('created_at'))
         .values('month')
         .annotate(count=Count('id'))
         .order_by('month')

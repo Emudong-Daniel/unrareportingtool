@@ -1,15 +1,22 @@
+# kabale_water/settings.py
 from pathlib import Path
 import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY =  os.getenv('DJANGO_SECRET_KEY') or 'dev-please-change-me-3c8a6f8b9a4c40b0b2f1a7b5e2c1d9aa'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY') or 'dev-please-change-me-3c8a6f8b9a4c40b0b2f1a7b5e2c1d9aa'
 
 DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',') if os.getenv('DJANGO_ALLOWED_HOSTS') else []
+
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 DEFAULT_FROM_EMAIL = 'noreply@unra.go.ug'
+
+# Twilio settings, leave blank in development
+TWILIO_SID = os.getenv('TWILIO_SID', '')
+TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN', '')
+TWILIO_PHONE = os.getenv('TWILIO_PHONE', '')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -19,7 +26,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    # project apps
     'complaints',
 ]
 
@@ -39,9 +45,7 @@ WSGI_APPLICATION = 'kabale_water.wsgi.application'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [
-            BASE_DIR / 'templates',
-        ],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -86,12 +90,10 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Authentication redirects
 LOGIN_REDIRECT_URL = '/redirect-after-login/'
 LOGIN_URL = '/login/'
 LOGOUT_REDIRECT_URL = '/'
 
-# Sessions
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 7
 SESSION_SAVE_EVERY_REQUEST = False
 CSRF_COOKIE_SECURE = os.getenv('DJANGO_SECURE', 'False') == 'True'

@@ -42,7 +42,6 @@
     </div>
 
     <div class="col-md-3">
-      <!-- Closed includes FIX and CLO handled by technicians -->
       <a href="{% url 'complaints:admin_dashboard' %}?filter=closed_by_tech" class="text-decoration-none d-block">
         <div class="card text-white bg-success mb-3">
           <div class="card-body text-center">
@@ -75,7 +74,7 @@
     <tbody>
       {% for m in monthly %}
         <tr>
-          <td>{{ m.month }}</td>
+          <td>{{ m.month|date:"F Y" }}</td>
           <td>{{ m.count }}</td>
         </tr>
       {% endfor %}
